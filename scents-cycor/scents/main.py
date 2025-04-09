@@ -335,6 +335,6 @@ except Exception as e:
     return jsonify({'detail': 'Erro de conexão ao fazer upload'}), 500
 
 if name == 'main':
-app.run(host='0.0.0.0', port=5000, debug=False)
+app.run(host='0.0.0.0', port=5000, debug=True)
 
 
