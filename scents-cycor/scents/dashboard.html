@@ -1,0 +1,145 @@
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scents Ads - Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="//cdn.jsdelivr.net/npm/eruda"></script>
+    <script>eruda.init();</script>
+</head>
+<body>
+    <div class="container">
+        <h1>Dashboard</h1>
+        <nav class="menu">
+            <a href="/upload">Novo Upload</a>
+            <a href="/docs-page">Documentação</a>
+        </nav>
+
+        <div class="token-section">
+            <h2>Token de Acesso</h2>
+            <div class="token-container">
+                <input type="text" id="token-input" placeholder="Cole seu token aqui">
+                <button onclick="saveTokenToBackend()">Salvar Token</button>
+            </div>
+            <div id="token-status" class="copy-status"></div>
+        </div>
+
+        <div class="generate-video-container">
+            <h2>Gerar Vídeo</h2>
+            <p>O vídeo será gerado com os últimos arquivos enviados no upload</p>
+            <button id="generate-video-btn" class="main-button">Gerar Vídeo</button>
+            <div id="status-message"></div>
+        </div>
+
+        <div id="video-result" style="display: none;">
+            <h3>Vídeo Gerado</h3>
+            <video id="generated-video" controls style="max-width: 100%;"></video>
+        </div>
+    </div>
+
+    <script>
+        async function saveTokenToBackend() {
+            const tokenInput = document.getElementById('token-input');
+            const status = document.getElementById('token-status');
+            const token = tokenInput.value.trim();
+
+            if (!token) {
+                status.textContent = 'Por favor, insira um token';
+                return;
+            }
+
+            try {
+                const response = await fetch('/save_token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ token })
+                });
+
+                if (response.ok) {
+                    localStorage.setItem('token', token);
+                    status.textContent = 'Token salvo com sucesso!';
+                } else {
+                    status.textContent = 'Erro ao salvar token';
+                }
+            } catch (error) {
+                status.textContent = 'Erro ao salvar token: ' + error;
+            }
+
+            setTimeout(() => {
+                status.textContent = '';
+            }, 1500);
+        }
+
+        // Carregar o token quando a página carregar
+        window.addEventListener('load', () => {
+            const token = localStorage.getItem('token');
+            if (token) {
+                document.getElementById('token-input').value = token;
+            }
+        });
+
+        async function checkToken() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.error('Token não encontrado');
+                return;
+            }
+
+            try {
+                const response = await fetch('/check_usage', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    console.error('Token inválido');
+                    return;
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+            }
+        }
+
+        checkToken();
+
+        document.getElementById('generate-video-btn').addEventListener('click', async () => {
+            const statusMessage = document.getElementById('status-message');
+            const token = localStorage.getItem('token');
+            statusMessage.textContent = 'Gerando vídeo...';
+
+            try {
+                const response = await fetch('/generate_video', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.message || 'Erro ao gerar vídeo');
+                }
+
+                statusMessage.textContent = 'Vídeo gerado com sucesso!';
+
+                const videoResult = document.getElementById('video-result');
+                const video = document.getElementById('generated-video');
+                const downloadLink = document.getElementById('download-link');
+
+                video.src = result.video_url;
+                videoResult.style.display = 'block';
+
+            } catch (error) {
+                statusMessage.textContent = 'Erro: ' + error.message;
+            }
+        });
+    </script>
+</body>
+</html>
