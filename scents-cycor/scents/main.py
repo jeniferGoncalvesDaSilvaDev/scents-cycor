@@ -160,10 +160,26 @@ def check_usage(current_user):
         'message': 'Uso verificado com sucesso'
     })
 
+#@app.route('/generate_video', methods=['POST'])
 @app.route('/generate_video', methods=['POST'])
 @limiter.limit("5 per minute")
 @token_required
 def generate_video(current_user):
+    user_id = current_user.id
+    
+    # Verificar se o usuário fez mais de 5 requisições em 1 minuto
+    requests_made = redis_client.get(f"user:{user_id}:requests")
+    
+    if requests_made and int(requests_made) >= 5:
+        return jsonify({'message': 'Limite de requisições por minuto atingido'}), 429
+
+    # Incrementar as requisições feitas pelo usuário
+    redis_client.incr(f"user:{user_id}:requests")
+    
+    # Definir um tempo de expiração de 1 minuto
+    redis_client.expire(f"user:{user_id}:requests", 60)
+    
+    # Aqui vai o restante do código para gerar o vídeo
     try:
         # Configurar caminhos dos arquivos
         audio_file = os.path.join('scents-cycor/scents/uploads', 'audio_A5CBR.mp3')
@@ -201,7 +217,6 @@ def generate_video(current_user):
         return jsonify({'message': 'Vídeo gerado com sucesso', 'video_url': video_url})
     except Exception as e:
         return jsonify({'message': 'Erro interno ao gerar vídeo', 'error': str(e)}), 500
-
 @app.route('/video/<filename>', methods=['GET'])
 def serve_video(filename):
     video_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
